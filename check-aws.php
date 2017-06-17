@@ -83,7 +83,7 @@ try {
 
 } catch (CredentialsException $e) {
     echo $e->getMessage();
-    return 3;
+    exit 3;
 }
 
 
@@ -122,4 +122,4 @@ switch ($state) {
 
 $msg .= ". $namespace, $metric, $dimensionName -> $dimensionValue, with average $point";
 echo $msg . PHP_EOL;
-return $state;
+exit $state;
