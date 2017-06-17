@@ -1,0 +1,13 @@
+{
+    "name": "dmelo/nagios-aws-plugin-php",
+    "authors": [
+        {
+            "name": "Diogo Oliveira de Melo",
+            "email": "dmelo87@gmail.com"
+        }
+    ],
+    "require": {
+        "aws/aws-sdk-php": "^3.29",
+        "nategood/commando": "^0.2.9"
+    }
+}
