@@ -4,6 +4,7 @@
 require_once __DIR__ . '/vendor/autoload.php';
 
 use Aws\CloudWatch\CloudWatchClient;
+use Aws\Exception\CredentialsException;
 use Commando\Command;
 
 $cmd = new Command();
@@ -51,33 +52,40 @@ $w = (int) $options['w']->getValue();
 $c = (int) $options['c']->getValue();
 
 
-$client = CloudWatchClient::factory(array(
-    'profile' => $profile,
-    'region' => $region,
-    'version' => '2010-08-01',
-));
+try {
+    $client = CloudWatchClient::factory(array(
+        'profile' => $profile,
+        'region' => $region,
+        'version' => '2010-08-01',
+    ));
 
 
-$startTime = new \DateTime();
-$startTime = $startTime->sub(new \DateInterval('PT10M'));
-$endTime = new \DateTime();
+    $startTime = new \DateTime();
+    $startTime = $startTime->sub(new \DateInterval('PT10M'));
+    $endTime = new \DateTime();
 
 
 
-$ret = $client->getMetricStatistics(array(
-    'Namespace' => $namespace,
-    'MetricName' => $metric,
-    'StartTime' => $startTime,
-    'EndTime' => $endTime,
-    'Period' => 600,
-    'Statistics' => array('Average'),
-    'Dimensions' => array(
-        array(
-            'Name' => $dimensionName,
-            'Value' => $dimensionValue,
-        )
-   )
-));
+    $ret = $client->getMetricStatistics(array(
+        'Namespace' => $namespace,
+        'MetricName' => $metric,
+        'StartTime' => $startTime,
+        'EndTime' => $endTime,
+        'Period' => 600,
+        'Statistics' => array('Average'),
+        'Dimensions' => array(
+            array(
+                'Name' => $dimensionName,
+                'Value' => $dimensionValue,
+            )
+       )
+    ));
+
+} catch (CredentialsException $e) {
+    echo $e->getMessage();
+    return 3;
+}
+
 
 $inc = $w < $c; // Is it increasing or decreasing?
 $datapoints = $ret->get('Datapoints');
