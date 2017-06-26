@@ -100,6 +100,10 @@ try {
 
 $datapoints = $ret->get('Datapoints');
 
+if (empty($datapoints)) {
+    exit(3);
+}
+
 foreach ($datapoints as $key => $value) {
     $timestamp = $value['Timestamp']->getTimestamp();
     $point = $value['Average'];
