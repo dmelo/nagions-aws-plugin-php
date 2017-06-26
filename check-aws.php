@@ -33,13 +33,18 @@ $cmd->option('i')
     ->aka('dimension-value')
     ->describeAs('Dimension value, can be found at the alarm detail, on AWS CloudWatch panel');
 $cmd->option('w')
-    ->require()
     ->aka('warning')
-    ->describeAs('Warning threshold');
+    ->describeAs('Warning threshold. Required only if format nagios is chosen');
 $cmd->option('c')
-    ->require()
     ->aka('critical')
-    ->describeAs('Critical threshold');
+    ->describeAs('Critical threshold. Required only if format nagios is chosen');
+$cmd->option('f')
+    ->aka('format')
+    ->describeAs('Output format. Options are: nagios, bosun. If not informed, defaults to nagios')
+    ->must(function($format) {
+        $formatList = array('bosun', 'nagios');
+        return in_array($format, $formatList);
+    });
 
 $options = $cmd->getOptions();
 $profile = $options['p']->getValue();
@@ -48,8 +53,15 @@ $namespace = $options['n']->getValue();
 $metric = $options['m']->getValue();
 $dimensionName = $options['d']->getValue();
 $dimensionValue = $options['i']->getValue();
+$format = null === $options['f']->getValue() ? 'nagios' : $options['f']->getValue();
+if ('nagios' === $format && (null === $options['w']->getValue() || null === $options['c']->getValue())) {
+    echo "Nagios format require -w and -c to be set" . PHP_EOL;
+    exit(3);
+}
+
 $w = (int) $options['w']->getValue();
 $c = (int) $options['c']->getValue();
+
 
 
 try {
@@ -86,40 +98,52 @@ try {
     exit(3);
 }
 
-
-$inc = $w < $c; // Is it increasing or decreasing?
 $datapoints = $ret->get('Datapoints');
 
 foreach ($datapoints as $key => $value) {
+    $timestamp = $value['Timestamp']->getTimestamp();
     $point = $value['Average'];
 }
 
-if (isset($point)) {
-    if ($inc) {
-        $state = $point >= $w ? $point >= $c ? 2 : 1 : 0;
+if ('nagios' === $format) {
+    $inc = $w < $c; // Is it increasing or decreasing?
+    if (isset($point)) {
+        if ($inc) {
+            $state = $point >= $w ? $point >= $c ? 2 : 1 : 0;
+        } else {
+            $state = $point <= $w ? $point <= $c ? 2 : 1 : 0;
+        }
     } else {
-        $state = $point <= $w ? $point <= $c ? 2 : 1 : 0;
+        $state = 3;
+        $point = '<unknown>';
     }
-} else {
-    $state = 3;
-    $point = '<unknown>';
-}
 
-$msg = '';
-switch ($state) {
-    case 0:
-        $msg = 'OK';
-        break;
-    case 1:
-        $msg = 'Warning';
-        break;
-    case 2:
-        $msg = 'Critical';
-        break;
-    default:
-        $msg = 'Unknown';
-}
+    $msg = '';
+    switch ($state) {
+        case 0:
+            $msg = 'OK';
+            break;
+        case 1:
+            $msg = 'Warning';
+            break;
+        case 2:
+            $msg = 'Critical';
+            break;
+        default:
+            $msg = 'Unknown';
+    }
 
-$msg .= ". $namespace, $metric, $dimensionName -> $dimensionValue, with average $point";
-echo $msg . PHP_EOL;
-exit($state);
+    $msg .= ". $namespace, $metric, $dimensionName -> $dimensionValue, with average $point";
+    echo $msg . PHP_EOL;
+    exit($state);
+} elseif ('bosun' === $format) {
+    $obj = new \stdClass();
+    $obj->metric = "CheckAWS.$namespace.$metric";
+    $obj->timestamp = $timestamp;
+    $obj->value = $point;
+    $obj->tags = new \stdClass();
+    $obj->tags->$dimensionName = $dimensionValue;
+    $obj->tags->region = $region;
+    
+    echo json_encode($obj);
+}
